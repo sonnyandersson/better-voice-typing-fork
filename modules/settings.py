@@ -20,12 +20,16 @@ class Settings:
             'cleaning_timeout': 10.0,  # Timeout for LLM cleaning in seconds
             'llm_model': "openai/gpt-4o-mini",
 
+            'lowercase_short_transcriptions': True,  # Use lowercase for short transcriptions
+            'lowercase_threshold': 4,  # Max word count for lowercase (0 to disable)
+
             'selected_microphone': None,
             'favorite_microphones': [],
 
             # UI customization
             'ui_indicator_position': 'top-right',  # 'top-right', 'top-left', 'bottom-right', 'bottom-left', 'top-center', 'bottom-center'
             'ui_indicator_size': 'normal',  # 'normal', 'mini'
+            'change_cursor_on_recording': True,  # Change mouse cursor during recording (may not work in all apps like VS Code)
 
             # Logging
             'log_retention_days': 60

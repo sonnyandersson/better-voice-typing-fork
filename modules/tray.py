@@ -271,9 +271,19 @@ def setup_tray_icon(app):
                         checked=lambda item: app.settings.get('clean_transcription')
                     ),
                     pystray.MenuItem(
+                        'Lowercase Short Transcriptions',
+                        lambda icon, item: app.toggle_lowercase_short(),
+                        checked=lambda item: app.settings.get('lowercase_short_transcriptions')
+                    ),
+                    pystray.MenuItem(
                         'Silent-Start Timeout',
                         lambda icon, item: app.toggle_silence_detection(),
                         checked=lambda item: app.settings.get('silent_start_timeout') is not None
+                    ),
+                    pystray.MenuItem(
+                        'Change Cursor on Recording',
+                        lambda icon, item: app.toggle_cursor_change(),
+                        checked=lambda item: app.settings.get('change_cursor_on_recording')
                     ),
                     pystray.MenuItem(
                         'Smart Capture',

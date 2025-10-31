@@ -10,7 +10,7 @@ from pathlib import Path
 import httpx
 import json
 
-from pynput import keyboard
+from pynput import keyboard, mouse
 import pyperclip
 
 from modules.clean_text import clean_transcription
@@ -24,6 +24,7 @@ from modules.audio_manager import set_input_device, get_default_device_id, Devic
 from modules.status_manager import StatusManager, AppStatus
 from modules.screen_utils import set_process_dpi_awareness, hide_console_window
 from modules.logger import setup_logging
+from modules.cursor_manager import get_cursor_manager
 
 class VoiceTypingApp:
     def __init__(self) -> None:
@@ -126,6 +127,58 @@ class VoiceTypingApp:
             suppress=False
         )
 
+        # Setup mouse listener for middle button (scroll wheel click)
+        # Long-press detection for Enter key
+        self.long_press_threshold = 0.5  # seconds to trigger long-press
+        self.long_press_timer = None  # Timer for long-press detection
+        self.long_press_triggered = False  # Flag to prevent toggle on release after long-press
+        self.middle_button_press_time = 0  # Track when button was pressed
+
+        def on_mouse_click(x: int, y: int, button: mouse.Button, pressed: bool) -> None:
+            # Only respond to middle button
+            if button == mouse.Button.middle:
+
+                if pressed:
+                    # Button pressed down - start long-press timer
+                    self.middle_button_press_time = datetime.now().timestamp()
+                    self.long_press_triggered = False
+
+                    def check_long_press():
+                        # This runs after long_press_threshold seconds
+                        if not self.long_press_triggered:
+                            self.long_press_triggered = True
+                            self.logger.info("Middle button long-press detected, sending Enter")
+
+                            # Send Enter key
+                            keyboard_controller = keyboard.Controller()
+                            keyboard_controller.press(keyboard.Key.enter)
+                            keyboard_controller.release(keyboard.Key.enter)
+
+                    # Schedule long-press check
+                    delay_ms = int(self.long_press_threshold * 1000)
+                    self.long_press_timer = self.ui_feedback.root.after(delay_ms, check_long_press)
+
+                else:
+                    # Button released
+
+                    # Cancel long-press timer if it hasn't triggered yet
+                    if self.long_press_timer:
+                        self.ui_feedback.root.after_cancel(self.long_press_timer)
+                        self.long_press_timer = None
+
+                    # If long-press was triggered, don't toggle recording
+                    if self.long_press_triggered:
+                        self.logger.info("Middle button released after long-press, ignoring")
+                        self.long_press_triggered = False
+                        return
+
+                    # Normal click - toggle recording
+                    press_duration = datetime.now().timestamp() - self.middle_button_press_time
+                    self.logger.info(f"Middle button normal click (duration: {press_duration:.3f}s), toggling recording")
+                    self.toggle_recording()
+
+        self.mouse_listener = mouse.Listener(on_click=on_mouse_click)
+
     def _initialize_microphone(self) -> None:
         """Initialize microphone device from settings or default"""
         try:
@@ -196,6 +249,9 @@ class VoiceTypingApp:
             # Clear last recording when starting a new one
             self.last_recording = None
             self.recording = True
+            # Change cursor to indicate recording (if enabled in settings)
+            if self.settings.get('change_cursor_on_recording'):
+                get_cursor_manager().set_recording_cursor()
             self.recorder.start()
             self.status_manager.set_status(AppStatus.RECORDING)
             # Start periodic status checks
@@ -206,6 +262,9 @@ class VoiceTypingApp:
     def _stop_recording(self) -> None:
         """Helper method to handle recording stop logic"""
         self.recording = False
+        # Restore cursor when recording stops (if cursor changes are enabled)
+        if self.settings.get('change_cursor_on_recording'):
+            get_cursor_manager().restore_cursor()
         self.recorder.stop()
         self.logger.info("Recording stopped via keyboard shortcut")
 
@@ -370,9 +429,21 @@ class VoiceTypingApp:
         status = 'enabled' if self.clean_transcription_enabled else 'disabled'
         self.logger.info(f"Clean transcription {status}")
 
+    def toggle_lowercase_short(self) -> None:
+        current = self.settings.get('lowercase_short_transcriptions')
+        new_value = not current
+        self.settings.set('lowercase_short_transcriptions', new_value)
+        status = 'enabled' if new_value else 'disabled'
+        threshold = self.settings.get('lowercase_threshold')
+        self.logger.info(f"Lowercase short transcriptions {status} (threshold: {threshold} words)")
+        self.update_icon_menu()
+
     def run(self) -> None:
         # Start keyboard listener
         self.listener.start()
+
+        # Start mouse listener
+        self.mouse_listener.start()
 
         # Start the UI feedback's tkinter mainloop in the main thread
         try:
@@ -385,6 +456,10 @@ class VoiceTypingApp:
         """Ensure proper cleanup of all resources"""
         self.logger.info("Cleaning up application resources")
         self.listener.stop()
+        self.mouse_listener.stop()
+        # Ensure cursor is restored on cleanup (if cursor changes are enabled)
+        if self.settings.get('change_cursor_on_recording'):
+            get_cursor_manager().restore_cursor()
         if self.recording:
             self.recorder.stop()
         self.ui_feedback.cleanup()
@@ -395,6 +470,9 @@ class VoiceTypingApp:
         if status == AppStatus.RECORDING:
             self.logger.info("Canceling recording...")
             self.recording = False
+            # Restore cursor when canceling recording (if cursor changes are enabled)
+            if self.settings.get('change_cursor_on_recording'):
+                get_cursor_manager().restore_cursor()
             threading.Thread(target=self._stop_recorder).start()
             self.status_manager.set_status(AppStatus.IDLE)
         elif status in (AppStatus.PROCESSING, AppStatus.TRANSCRIBING, AppStatus.CLEANING):
@@ -432,6 +510,15 @@ class VoiceTypingApp:
 
         status = "enabled" if new_timeout is not None else "disabled"
         self.logger.info(f"Silence detection {status}")
+
+    def toggle_cursor_change(self) -> None:
+        """Toggle cursor change on recording on/off"""
+        current = self.settings.get('change_cursor_on_recording')
+        new_value = not current
+        self.settings.set('change_cursor_on_recording', new_value)
+        status = 'enabled' if new_value else 'disabled'
+        self.logger.info(f"Cursor change on recording {status}")
+        self.update_icon_menu()
 
     def restart_app(self) -> None:
         """Restart the application by launching a new instance and closing the current one."""

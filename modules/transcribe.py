@@ -85,6 +85,20 @@ def transcribe_audio(filename: str, language: Optional[str] = None) -> str:
 
         # Transcribe the audio
         result = transcriber.transcribe(filename)
+
+        # Apply lowercase for short transcriptions if enabled
+        if settings.get('lowercase_short_transcriptions'):
+            threshold = settings.get('lowercase_threshold') or 0
+            if threshold > 0:
+                word_count = len(result.split())
+                if word_count <= threshold:
+                    # Convert first character to lowercase, preserving rest of text
+                    result = result[0].lower() + result[1:] if len(result) > 0 else result
+                    # Remove trailing period if present
+                    if result.endswith('.'):
+                        result = result[:-1]
+                    logger.debug(f"Applied lowercase and removed period for {word_count}-word transcription")
+
         return result
 
     except Exception as e:
