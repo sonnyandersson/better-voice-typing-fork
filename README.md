@@ -1,4 +1,8 @@
 # Voice Typing Assistant
+--------------
+**A fork of https://github.com/Elevate-Code/better-voice-typing**
+The intention was to make this fork private... **Stay with the original by dimitri-vs**. This one experiments with some minor tweaks - like starting and stopping the recording with a click on the mouse wheel, no capital letter and no period if fewer than X words etc...
+--------------
 
 A lightweight Python desktop app for Windows that improves upon Windows Voice Typing (Win+H) by offering superior transcription accuracy and the ability to navigate between windows while recording, all while maintaining a simple, intuitive interface.
 
