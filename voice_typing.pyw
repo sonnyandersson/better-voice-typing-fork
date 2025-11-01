@@ -9,6 +9,8 @@ from datetime import datetime
 from pathlib import Path
 import httpx
 import json
+import tempfile
+import atexit
 
 from pynput import keyboard, mouse
 import pyperclip
@@ -540,6 +542,59 @@ class VoiceTypingApp:
             self.logger.error(f"Failed to restart application: {e}", exc_info=True)
             self.status_manager.set_status(AppStatus.ERROR, "⚠️ Failed to restart")
 
+def check_single_instance():
+    """Ensure only one instance of the application is running"""
+    lock_file = Path(tempfile.gettempdir()) / "voice_typing_app.lock"
+    
+    try:
+        # Try to create the lock file exclusively
+        if lock_file.exists():
+            # Check if the process that created this lock file is still running
+            try:
+                with open(lock_file, 'r') as f:
+                    pid = int(f.read().strip())
+                
+                # Check if process is still running on Windows
+                if os.name == 'nt':
+                    import ctypes
+                    handle = ctypes.windll.kernel32.OpenProcess(0x400, False, pid)  # PROCESS_QUERY_INFORMATION
+                    if handle:
+                        ctypes.windll.kernel32.CloseHandle(handle)
+                        print("Voice Typing is already running. Please check your system tray.")
+                        sys.exit(1)
+                    else:
+                        # Process not running, remove stale lock file
+                        lock_file.unlink(missing_ok=True)
+                else:
+                    # On Unix-like systems
+                    try:
+                        os.kill(pid, 0)  # Check if process exists
+                        print("Voice Typing is already running. Please check your system tray.")
+                        sys.exit(1)
+                    except OSError:
+                        # Process not running, remove stale lock file
+                        lock_file.unlink(missing_ok=True)
+            except (ValueError, FileNotFoundError):
+                # Invalid lock file, remove it
+                lock_file.unlink(missing_ok=True)
+        
+        # Create new lock file with current PID
+        with open(lock_file, 'w') as f:
+            f.write(str(os.getpid()))
+        
+        # Register cleanup function to remove lock file on exit
+        def cleanup_lock():
+            try:
+                lock_file.unlink(missing_ok=True)
+            except:
+                pass
+        
+        atexit.register(cleanup_lock)
+        
+    except Exception as e:
+        print(f"Warning: Could not create single instance lock: {e}")
+
 if __name__ == "__main__":
+    check_single_instance()
     app = VoiceTypingApp()
     app.run()
