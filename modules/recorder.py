@@ -53,7 +53,13 @@ class AudioRecorder:
 
     def _calculate_level(self, indata: np.ndarray) -> float:
         """Calculate audio level from input data"""
-        rms = np.sqrt(np.mean(np.square(indata)))
+        # For multi-channel, average across all channels first for RMS calculation
+        if indata.ndim > 1:
+            mono_for_rms = np.mean(indata, axis=1) if indata.shape[1] > 1 else indata.flatten()
+        else:
+            mono_for_rms = indata
+
+        rms = np.sqrt(np.mean(np.square(mono_for_rms)))
 
         # Convert to dB for level display
         db = 20 * np.log10(max(1e-10, rms))
@@ -68,13 +74,16 @@ class AudioRecorder:
             if rms < SILENCE_THRESHOLD:
                 if self.silence_start is None:
                     self.silence_start = time.time()
+                    print(f"Initial silence detected (RMS: {rms:.6f} < {SILENCE_THRESHOLD}, dB: {db:.1f})")
                 elif time.time() - self.silence_start >= self.silent_start_timeout:
-                    print(f"Stopping due to {self.silent_start_timeout}s of initial silence")
+                    print(f"Stopping due to {self.silent_start_timeout}s of initial silence (RMS: {rms:.6f})")
                     self.auto_stopped = True
                     self.recording = False
                     return 0.0
             else:
                 # We've detected sound, stop checking for silence
+                if self.silence_start is not None:
+                    print(f"Sound detected! (RMS: {rms:.6f} >= {SILENCE_THRESHOLD}, dB: {db:.1f})")
                 self.initial_sound_detected = True
                 self.silence_start = None
 
@@ -118,6 +127,21 @@ class AudioRecorder:
 
     def _record(self) -> None:
         """Record audio in a separate thread"""
+        # Get the current input device's channel count
+        device_id = sd.default.device[0]
+        if device_id is None:
+            device = sd.query_devices(kind='input')
+            device_channels = device['max_input_channels']
+            device_name = device['name']
+        else:
+            device = sd.query_devices(device_id)
+            device_channels = device['max_input_channels']
+            device_name = device['name']
+
+        # Use device's actual channel count for recording
+        record_channels = device_channels
+        print(f"Recording from device: {device_name} (ID: {device_id}, Channels: {record_channels})")
+
         def audio_callback(indata: np.ndarray,
                          frames: int,
                          time_info: Any,
@@ -141,20 +165,30 @@ class AudioRecorder:
                 # Only write audio data if not auto-stopped
                 if not self.auto_stopped and self.file is not None:
                     try:
-                        self.file.write(indata.copy())
+                        # Convert multi-channel to mono by averaging channels
+                        if indata.ndim > 1 and indata.shape[1] > 1:
+                            # Average across channels to create mono (results in 1D array)
+                            # Convert back to int16 after averaging to match PCM_16 format
+                            mono_data = np.mean(indata, axis=1).astype(indata.dtype)
+                        else:
+                            # Already mono or 1D
+                            mono_data = indata.flatten() if indata.ndim > 1 else indata
+                        self.file.write(mono_data)
                     except Exception as e:
                         print(f"Audio callback error: {e}")
                         self.recording = False
                         raise sd.CallbackStop()
 
         try:
+            # Always save as mono WAV
             with sf.SoundFile(self.filename, mode='w',
                             samplerate=22050,
                             channels=1,
                             subtype='PCM_16',
                             format='WAV') as self.file:
+                # But record with device's actual channel count
                 with sd.InputStream(samplerate=22050,
-                                  channels=1,
+                                  channels=record_channels,
                                   callback=audio_callback) as self.stream:
                     while self.recording:
                         sd.sleep(100)

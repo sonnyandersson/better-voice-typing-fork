@@ -42,6 +42,8 @@ def create_microphone_menu(app):
             set_input_device(device['id'])
             # Log the device change
             app.logger.info(f"Microphone changed to: {device['name']} (ID: {device['id']}, Channels: {device['max_input_channels']}, Sample Rate: {device['default_samplerate']} Hz)")
+            # Refresh menu to update checkmark
+            app.update_icon_menu()
         return handler
 
     def make_favorite_handler(device: Dict[str, any]):

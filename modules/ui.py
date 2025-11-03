@@ -88,21 +88,21 @@ class UIFeedback:
     def _configure_size_attributes(self) -> None:
         """Sets UI dimension attributes based on self.size."""
         if self.size == 'mini':
-            self.label_padx = 5
-            self.label_pady = 3
-            self.level_height = 3
-            self.level_padx = 2
-            self.level_pady = (0, 2)
-            self.font_size = 9
+            self.label_padx = 8
+            self.label_pady = 5
+            self.level_height = 4
+            self.level_padx = 3
+            self.level_pady = (0, 3)
+            self.font_size = 11
             self.frame_padding = 0
             self.label_text = "🎤 Recording"
         else:  # normal
-            self.label_padx = 10
-            self.label_pady = 5
-            self.level_height = 4
-            self.level_padx = 4
-            self.level_pady = (0, 4)
-            self.font_size = None
+            self.label_padx = 15
+            self.label_pady = 8
+            self.level_height = 6
+            self.level_padx = 6
+            self.level_pady = (0, 6)
+            self.font_size = 12
             self.frame_padding = 0
             self.label_text = "🎤 Recording (click to cancel)"
 

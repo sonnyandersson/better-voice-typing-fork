@@ -2,7 +2,8 @@
 
 # Core functionality
 python-dotenv==1.0.1  # Environment variables
-pynput==1.7.6  # Keyboard shortcuts
+pynput==1.7.6  # Mouse listener and key simulation
+keyboard==0.13.5  # Global hotkey support
 sounddevice==0.5.1  # Audio recording
 soundfile==0.12.1  # Audio file handling
 

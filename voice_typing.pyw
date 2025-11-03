@@ -12,7 +12,8 @@ import json
 import tempfile
 import atexit
 
-from pynput import keyboard, mouse
+from pynput import keyboard as pynput_keyboard, mouse
+import keyboard  # For global hotkey support
 import pyperclip
 
 from modules.clean_text import clean_transcription
@@ -60,7 +61,6 @@ class VoiceTypingApp:
         )
         self.ui_feedback.set_click_callback(self.handle_ui_click)
         self.recording = False
-        self.ctrl_pressed = False
         self.clean_transcription_enabled = self.settings.get('clean_transcription')
         self.history = TranscriptionHistory()
 
@@ -92,42 +92,26 @@ class VoiceTypingApp:
         # Store last recording for retry functionality
         self.ui_feedback.set_retry_callback(self.retry_transcription)
 
-        def win32_event_filter(msg: int, data: Any) -> bool:
-            # Key codes and messages
-            VK_CONTROL = 0x11
-            VK_LCONTROL = 0xA2
-            VK_RCONTROL = 0xA3
-            VK_CAPITAL = 0x14
+        # Setup global hotkey: Ctrl+Shift+< (OEM_102 key on Swedish keyboard, produces >)
+        # Try multiple approaches for compatibility
+        hotkey_registered = False
+        hotkey_attempts = [
+            ('ctrl+shift+>', 'ctrl+shift+> (character)'),
+            ('ctrl+shift+<', 'ctrl+shift+< (character)'),
+            ('ctrl+shift+,', 'ctrl+shift+, (fallback)'),
+        ]
 
-            WM_KEYDOWN = 0x0100
-            WM_KEYUP = 0x0101
+        for hotkey, description in hotkey_attempts:
+            try:
+                keyboard.add_hotkey(hotkey, self.toggle_recording)
+                self.logger.info(f"Hotkey registered: {description}")
+                hotkey_registered = True
+                break
+            except Exception as e:
+                self.logger.debug(f"Could not register {description}: {e}")
 
-            if data.vkCode in (VK_CONTROL, VK_LCONTROL, VK_RCONTROL):
-                if msg == WM_KEYDOWN:
-                    self.ctrl_pressed = True
-                elif msg == WM_KEYUP:
-                    self.ctrl_pressed = False
-                return True
-
-            # Handle Caps Lock
-            if data.vkCode == VK_CAPITAL and msg == WM_KEYDOWN:
-                if self.ctrl_pressed:
-                    # Allow normal Caps Lock behavior when Ctrl is pressed
-                    return True
-                else:
-                    # Toggle recording and suppress default Caps Lock behavior. Returning False is not always sufficient
-                    # to prevent the OS from toggling the Caps Lock state, so suppress_event() is used.
-                    # TODO: watch this as it still seems to be a bit flaky
-                    self.toggle_recording()
-                    self.listener.suppress_event()
-                    return False
-
-            return True
-
-        self.listener = keyboard.Listener(
-            win32_event_filter=win32_event_filter,
-            suppress=False
-        )
+        if not hotkey_registered:
+            self.logger.warning("Could not register Ctrl+Shift+< hotkey - using middle mouse/Caps Lock only")
 
         # Setup mouse listener for middle button (scroll wheel click)
         # Long-press detection for Enter key
@@ -151,10 +135,10 @@ class VoiceTypingApp:
                             self.long_press_triggered = True
                             self.logger.info("Middle button long-press detected, sending Enter")
 
-                            # Send Enter key
-                            keyboard_controller = keyboard.Controller()
-                            keyboard_controller.press(keyboard.Key.enter)
-                            keyboard_controller.release(keyboard.Key.enter)
+                            # Send Enter key using pynput
+                            keyboard_controller = pynput_keyboard.Controller()
+                            keyboard_controller.press(pynput_keyboard.Key.enter)
+                            keyboard_controller.release(pynput_keyboard.Key.enter)
 
                     # Schedule long-press check
                     delay_ms = int(self.long_press_threshold * 1000)
@@ -441,9 +425,6 @@ class VoiceTypingApp:
         self.update_icon_menu()
 
     def run(self) -> None:
-        # Start keyboard listener
-        self.listener.start()
-
         # Start mouse listener
         self.mouse_listener.start()
 
@@ -457,7 +438,7 @@ class VoiceTypingApp:
     def cleanup(self) -> None:
         """Ensure proper cleanup of all resources"""
         self.logger.info("Cleaning up application resources")
-        self.listener.stop()
+        keyboard.unhook_all()  # Cleanup keyboard hotkeys
         self.mouse_listener.stop()
         # Ensure cursor is restored on cleanup (if cursor changes are enabled)
         if self.settings.get('change_cursor_on_recording'):
