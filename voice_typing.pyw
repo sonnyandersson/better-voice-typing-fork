@@ -296,16 +296,24 @@ class VoiceTypingApp:
                 self.status_manager.set_status(AppStatus.IDLE)
                 return
 
+            # Always store recording path for retry functionality (even if invalid)
+            self.last_recording = self.recorder.filename
+
             if not is_valid:
                 self.logger.warning(f"Skipping transcription: {reason}")
-                self.status_manager.set_status(
-                    AppStatus.ERROR,
-                    "⛔ Skipped: " + ("too short" if "short" in reason.lower() else "mostly silence")
-                )
+                
+                # Check if it's a "mostly silent" recording (not too short)
+                if "silence" in reason.lower():
+                    # Give user option to try transcribing anyway
+                    self.ui_feedback.show_error_with_retry("🔇 Mostly silent - try anyway?")
+                    self.status_manager.set_status(AppStatus.ERROR, "🔇 Mostly silent")
+                else:
+                    # Too short - just skip without retry option
+                    self.status_manager.set_status(
+                        AppStatus.ERROR,
+                        "⛔ Skipped: too short"
+                    )
                 return
-
-            # Store recording path for retry functionality
-            self.last_recording = self.recorder.filename
 
             self.logger.info("Starting transcription")
             success, result = self._attempt_transcription()
@@ -493,6 +501,15 @@ class VoiceTypingApp:
 
         status = "enabled" if new_timeout is not None else "disabled"
         self.logger.info(f"Silence detection {status}")
+
+    def set_silence_threshold(self, value: float) -> None:
+        """Set the silence threshold for detecting mostly silent recordings"""
+        self.settings.set('silence_threshold', value)
+        # Dynamically update the recorder module's threshold
+        from modules import recorder
+        recorder.SILENCE_THRESHOLD = value
+        self.logger.info(f"Silence threshold set to {value:.4f}")
+        self.update_icon_menu()
 
     def toggle_cursor_change(self) -> None:
         """Toggle cursor change on recording on/off"""

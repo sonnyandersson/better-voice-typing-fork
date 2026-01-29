@@ -278,9 +278,55 @@ def setup_tray_icon(app):
                         checked=lambda item: app.settings.get('lowercase_short_transcriptions')
                     ),
                     pystray.MenuItem(
-                        'Silent-Start Timeout',
-                        lambda icon, item: app.toggle_silence_detection(),
-                        checked=lambda item: app.settings.get('silent_start_timeout') is not None
+                        'Silence Detection',
+                        pystray.Menu(
+                            pystray.MenuItem(
+                                'Enable Silent-Start Timeout',
+                                lambda icon, item: app.toggle_silence_detection(),
+                                checked=lambda item: app.settings.get('silent_start_timeout') is not None
+                            ),
+                            pystray.Menu.SEPARATOR,
+                            pystray.MenuItem(
+                                'Silence Threshold',
+                                pystray.Menu(
+                                    pystray.MenuItem(
+                                        'Ultra Permissive (0.001)',
+                                        lambda icon, item: app.set_silence_threshold(0.001),
+                                        checked=lambda item: abs(app.settings.get('silence_threshold') - 0.001) < 0.0001
+                                    ),
+                                    pystray.MenuItem(
+                                        'Very Permissive (0.002)',
+                                        lambda icon, item: app.set_silence_threshold(0.002),
+                                        checked=lambda item: abs(app.settings.get('silence_threshold') - 0.002) < 0.0001
+                                    ),
+                                    pystray.MenuItem(
+                                        'Permissive (0.003)',
+                                        lambda icon, item: app.set_silence_threshold(0.003),
+                                        checked=lambda item: abs(app.settings.get('silence_threshold') - 0.003) < 0.0001
+                                    ),
+                                    pystray.MenuItem(
+                                        'Moderate (0.005)',
+                                        lambda icon, item: app.set_silence_threshold(0.005),
+                                        checked=lambda item: abs(app.settings.get('silence_threshold') - 0.005) < 0.0001
+                                    ),
+                                    pystray.MenuItem(
+                                        'Normal (0.01)',
+                                        lambda icon, item: app.set_silence_threshold(0.01),
+                                        checked=lambda item: abs(app.settings.get('silence_threshold') - 0.01) < 0.0001
+                                    ),
+                                    pystray.MenuItem(
+                                        'Strict (0.015)',
+                                        lambda icon, item: app.set_silence_threshold(0.015),
+                                        checked=lambda item: abs(app.settings.get('silence_threshold') - 0.015) < 0.0001
+                                    ),
+                                    pystray.MenuItem(
+                                        'Very Strict (0.02)',
+                                        lambda icon, item: app.set_silence_threshold(0.02),
+                                        checked=lambda item: abs(app.settings.get('silence_threshold') - 0.02) < 0.0001
+                                    ),
+                                )
+                            ),
+                        )
                     ),
                     pystray.MenuItem(
                         'Change Cursor on Recording',

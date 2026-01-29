@@ -32,13 +32,15 @@ See the [CHANGELOG.json](CHANGELOG.json) file for latest changes or the [release
 - **Copy Last Transcription**: If your cursor was misplaced, left-click tray icon to copy last transcription
 
 ### Tray Options/Settings
-- Retry Last Transcription: Attempts to re-process the last audio recording, useful if the first attempt failed or was inaccurate.
+- Retry Last Transcription: Attempts to re-process the last audio recording, useful if the first attempt failed or was inaccurate. Also works for recordings that were skipped due to being "mostly silent" - giving you a chance to recover potentially useful audio.
 - Recent Transcriptions: Access previous transcriptions, copy to clipboard.
 - Microphone Selection: Choose your preferred input device.
 - Settings:
   - Continuous Capture: Default recording mode. Record audio until the user stops it, send it all at once to the STT provider.
   - Clean Transcription: Enable/disable further refinement of the transcription using a configurable LLM.
-  - Silent-Start Timeout: Cancels the recording if no sound is detected within the first few seconds, preventing accidental recordings.
+  - Silence Detection: Configure how the app detects and handles silence:
+    - Silent-Start Timeout: Cancels the recording if no sound is detected within the first few seconds, preventing accidental recordings.
+    - Silence Threshold: Adjusts how aggressively recordings are rejected as "mostly silent". Lower values (Permissive) allow quieter recordings through, higher values (Strict) reject more. When a recording is detected as mostly silent, you can still attempt to transcribe it using "Retry Last Transcription".
   - Recording Indicator: Customize the on-screen size and position of the recording indicator.
   - Speech-to-Text: Select your STT provider (OpenAI, Google Cloud) and model (Whisper, GPT-4o, GPT-4o Mini).
 - Restart: Quickly restart the application, like when it's not responding to the keyboard shortcut.
@@ -55,7 +57,7 @@ While most settings can be controlled from the tray menu, you can fine-tune the 
 | Setting | Description | Default | Example Values |
 | --- | --- | --- | --- |
 | `silent_start_timeout` | Duration in seconds to wait for sound at the beginning of a recording before automatically canceling. Set to `null` to disable. | `4.0` | `2.0` to `5.0` |
-| `silence_threshold` | The audio level (RMS) below which sound is considered silence. Lower values are more sensitive. | `0.01` | `0.005` (very quiet) to `0.02` (noisier) |
+| `silence_threshold` | The audio level (RMS) below which sound is considered silence for skipping transcription. Lower values allow quieter recordings through. **Adjustable via tray menu: Settings > Silence Detection > Silence Threshold.** | `0.01` | `0.001` (ultra permissive) to `0.02` (very strict) |
 | `log_retention_days` | Number of days to keep log files. | `60` | `14`, `90`, `null` (indefinitely) |
 | `stt_provider` | The speech-to-text service to use. | `"openai"` | `"openai"`, `"google"` |
 | `openai_stt_model` | The specific model to use for OpenAI's service. `gpt-4o-transcribe` is recommended for highest accuracy. | `"gpt-4o-transcribe"` | `"gpt-4o-transcribe"`, `"gpt-4o-mini-transcribe"` |
