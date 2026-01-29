@@ -62,6 +62,57 @@ While most settings can be controlled from the tray menu, you can fine-tune the 
 | `stt_provider` | The speech-to-text service to use. | `"openai"` | `"openai"`, `"google"` |
 | `openai_stt_model` | The specific model to use for OpenAI's service. `gpt-4o-transcribe` is recommended for highest accuracy. | `"gpt-4o-transcribe"` | `"gpt-4o-transcribe"`, `"gpt-4o-mini-transcribe"` |
 
+### Understanding Silence Threshold
+
+The **Silence Threshold** setting determines when recordings are automatically rejected as "mostly silent" to save API costs. It measures audio level using **RMS (Root Mean Square)** values from 0 (complete silence) to 1 (maximum volume).
+
+**Key concept: LOWER threshold = MORE recordings accepted**
+
+#### Available Settings (via Tray Menu):
+
+| Setting | RMS Value | dB Level | Best For |
+|---------|-----------|----------|----------|
+| Ultra Permissive | 0.001 | ~-60 dB | Accepts almost everything; use if getting false "mostly silent" warnings |
+| Very Permissive | 0.002 | ~-54 dB | Very quiet speech, low microphone volume |
+| Permissive | 0.003 | ~-50 dB | Quiet environments, speaking softly |
+| Moderate | 0.005 | ~-46 dB | Low volume setups |
+| **Normal** (Default) | **0.01** | **~-40 dB** | **Standard for most setups** |
+| Strict | 0.015 | ~-36 dB | High background noise, filter out quiet recordings |
+| Very Strict | 0.02 | ~-34 dB | Very noisy environments, only accept loud speech |
+
+#### How to Choose:
+
+- **Getting false "mostly silent" warnings?** → Lower the threshold (try Permissive or Very Permissive)
+- **Too many near-silent recordings being sent?** → Raise the threshold (try Strict)
+- **Recordings work fine on retry?** → Your threshold is too high, lower it
+- **Quiet microphone or soft speech?** → Use Permissive/Very Permissive/Ultra Permissive
+
+Remember: If a recording is rejected as "mostly silent," you can always recover it using **"Retry Last Transcription"** from the tray menu or by clicking the warning message.
+
+### Retry Last Transcription Feature
+
+The **Retry Last Transcription** feature provides a safety net for recovering recordings that were skipped or failed:
+
+#### When to Use Retry:
+
+- **"Mostly Silent" Warnings**: If you get a "🔇 Mostly silent - try anyway?" message, the recording was rejected due to low audio levels but the file still exists
+- **Failed Transcriptions**: Network timeouts, API errors, or other issues during the first attempt
+- **Transcription Errors**: The result was inaccurate or incomplete and you want to try again
+
+#### Three Ways to Retry:
+
+1. **Click the Warning Message**: When you see "🔇 Mostly silent - try anyway?", click it within 7 seconds
+2. **Tray Menu**: Right-click the tray icon → "🔄 Retry Last Transcription" (available whenever a recording exists)
+3. **After Errors**: Any error message with "🔄 Click to retry" can be clicked
+
+#### How Retry Works:
+
+- **First Attempt**: Automatically checks audio levels → Rejects if below silence threshold → No API call made
+- **Retry**: Bypasses silence check → Sends directly to transcription service → Attempts to transcribe regardless of volume
+- **Result**: Transcription is copied to clipboard (not auto-inserted) and added to history
+
+**Important**: Retry doesn't improve audio quality—it simply forces transcription of low-volume recordings that were automatically filtered. If a recording truly contains no speech, retry will likely return an empty or nonsensical result.
+
 ## Technical Details
 - Minimal UI built with Python tkinter
 - Multi-provider Speech-to-Text support with OpenAI GPT-4o models and Whisper
